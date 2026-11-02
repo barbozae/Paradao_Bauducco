@@ -25,6 +25,7 @@ ROTULOS_STATUS = {
 
 # As colunas editáveis vêm logo após a tarefa, para não exigir rolagem lateral.
 COLUNAS_VISIVEIS = [
+    "excluir",
     "status_rotulo",
     "linha",
     "tarefa",
@@ -36,8 +37,9 @@ COLUNAS_VISIVEIS = [
     "responsavel",
     "ordem_de_trabalho",
 ]
-COLUNAS_EDITAVEIS = {"progresso", "inicio_real", "fim_real"}
+COLUNAS_EDITAVEIS = {"excluir", "progresso", "inicio_real", "fim_real"}
 ERROS_EXIBIDOS = 10
+TEXTO_MARCADAS = "Use o botão Excluir marcadas, ou desmarque as atividades para salvar."
 
 
 def _chave_editor(df: pd.DataFrame, versao: int) -> str:
@@ -58,9 +60,42 @@ def _mostrar_erros(erros: list[str]) -> None:
     st.error(f"Nada foi salvo. Corrija:\n{texto}")
 
 
-def renderizar_tabela(df: pd.DataFrame, versao: int, salvar: Callable[[list[dict]], None]) -> None:
-    """Mostra o editor e, ao clicar em Salvar, valida e grava as alterações."""
+@st.dialog("Excluir atividades", width="large")
+def _confirmar_exclusao(marcadas: pd.DataFrame, excluir: Callable[[list[int]], None]) -> None:
+    """Pede confirmação, porque a exclusão não pode ser desfeita."""
+    aviso = f"**{len(marcadas)} atividade(s)** serão apagadas definitivamente do banco."
+    com_progresso = int((pd.to_numeric(marcadas["progresso"]) > 0).sum())
+    if com_progresso:
+        aviso += f" Destas, {com_progresso} têm progresso lançado, que também será perdido."
+    st.warning(aviso)
+
+    st.dataframe(
+        marcadas[["linha", "tarefa", "inicio", "progresso"]],
+        hide_index=True,
+        column_config={
+            "linha": st.column_config.TextColumn("Linha"),
+            "tarefa": st.column_config.TextColumn("Tarefa"),
+            "inicio": st.column_config.DateColumn("Início planejado", format="DD/MM/YYYY"),
+            "progresso": st.column_config.NumberColumn("% Realizado", format="%d%%"),
+        },
+    )
+
+    col_excluir, col_cancelar = st.columns(2)
+    if col_excluir.button("Excluir definitivamente", type="primary"):
+        excluir([int(id_atividade) for id_atividade in marcadas["id"]])
+    if col_cancelar.button("Cancelar"):
+        st.rerun()
+
+
+def renderizar_tabela(
+    df: pd.DataFrame,
+    versao: int,
+    salvar: Callable[[list[dict]], None],
+    excluir: Callable[[list[int]], None],
+) -> None:
+    """Mostra o editor; Salvar grava as alterações e Excluir apaga as linhas marcadas."""
     original = df.assign(
+        excluir=False,
         status_rotulo=df["status"].map(ROTULOS_STATUS),
         ordem_de_trabalho=df["ordem_de_trabalho"].fillna(""),
     )
@@ -78,6 +113,7 @@ def renderizar_tabela(df: pd.DataFrame, versao: int, salvar: Callable[[list[dict
             column_order=COLUNAS_VISIVEIS,
             disabled=[coluna for coluna in COLUNAS_VISIVEIS if coluna not in COLUNAS_EDITAVEIS],
             column_config={
+                "excluir": st.column_config.CheckboxColumn("Excluir", width="small"),
                 "status_rotulo": st.column_config.TextColumn("Status"),
                 "linha": st.column_config.TextColumn("Linha"),
                 "tarefa": st.column_config.TextColumn("Tarefa", width="medium"),
@@ -94,11 +130,28 @@ def renderizar_tabela(df: pd.DataFrame, versao: int, salvar: Callable[[list[dict
         )
         st.caption(
             "Confirme cada célula com Enter e depois clique em Salvar. "
-            "Mudar os filtros antes de salvar descarta as edições."
+            "Mudar os filtros antes de salvar descarta as edições. "
+            "Excluir não salva as edições da tabela."
         )
-        enviado = st.form_submit_button("Salvar", type="primary")
+        col_salvar, col_excluir = st.columns([1, 5])
+        enviado = col_salvar.form_submit_button("Salvar", type="primary")
+        pedir_exclusao = col_excluir.form_submit_button("Excluir marcadas")
+
+    marcadas = editado[editado["excluir"]]
+
+    if pedir_exclusao:
+        if marcadas.empty:
+            st.info("Marque na coluna Excluir as atividades que deseja apagar.")
+        else:
+            _confirmar_exclusao(marcadas, excluir)
+        return
 
     if enviado:
+        # Salvar nunca apaga nada: quem marcou uma linha precisa pedir a exclusão.
+        if not marcadas.empty:
+            st.warning(f"Nada foi salvo. Há {len(marcadas)} atividade(s) marcada(s). {TEXTO_MARCADAS}")
+            return
+
         erros = validar_edicoes(editado)
         if erros:
             _mostrar_erros(erros)

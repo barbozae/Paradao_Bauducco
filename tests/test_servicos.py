@@ -21,7 +21,9 @@ from services.regras import (
     calcular_status,
     identificar_alteracoes,
     listar_responsaveis,
+    padronizar_texto,
     validar_edicoes,
+    validar_nova_atividade,
 )
 
 HOJE = date(2026, 12, 25)
@@ -32,12 +34,11 @@ def atividades(*linhas: dict) -> pd.DataFrame:
     padrao = {
         "linha": "A", "tarefa": "T", "responsavel": "Ana", "progresso": 0.0,
         "inicio": "2026-12-22", "termino": "2026-12-24",
-        "inicio_real": None, "fim_real": None, "peso": None,
+        "inicio_real": None, "fim_real": None,
     }
     df = pd.DataFrame([{"id": i, **padrao, **linha} for i, linha in enumerate(linhas, start=1)])
     for coluna in ("inicio", "termino", "inicio_real", "fim_real"):
         df[coluna] = pd.to_datetime(df[coluna])
-    df["peso"] = pd.to_numeric(df["peso"]).astype(float)
     df["progresso"] = df["progresso"].astype(float)
     df["status"] = calcular_status(df, HOJE)
     return df
@@ -75,6 +76,21 @@ def test_validacao_aceita_limites_e_datas_vazias():
         {"fim_real": "2026-12-23"},
     )
     assert validar_edicoes(df) == []
+
+
+def test_padronizar_texto_adota_grafia_existente():
+    assert padronizar_texto("  valmir  ", ["Douglas", "Valmir"]) == "Valmir"
+    assert padronizar_texto("Linha   nova", ["SILOS"]) == "Linha nova"
+    assert padronizar_texto(None) == ""
+
+
+def test_validar_nova_atividade():
+    dia = date(2026, 12, 22)
+    assert validar_nova_atividade("A", "T", dia, dia) == []
+    assert validar_nova_atividade("A", "T", dia, date(2026, 12, 23)) == []
+    assert len(validar_nova_atividade("", "", dia, dia)) == 2
+    assert len(validar_nova_atividade("A", "T", date(2026, 12, 23), dia)) == 1
+    assert len(validar_nova_atividade("A", "T", None, dia)) == 1
 
 
 def test_alteracoes_traz_so_o_que_mudou():
@@ -126,14 +142,9 @@ def test_planejado_sobe_linear_e_termina_em_100():
     assert montar_curva(df, HOJE)["planejado"].iloc[-1] == pytest.approx(100)
 
 
-def test_sem_peso_todas_valem_igual():
+def test_todas_as_atividades_valem_igual():
     df = atividades({"progresso": 100.0}, {"progresso": 0.0})
     assert percentual_realizado(df) == 50
-
-
-def test_peso_pondera_o_avanco():
-    df = atividades({"progresso": 100.0, "peso": 3.0}, {"progresso": 0.0, "peso": 1.0})
-    assert percentual_realizado(df) == 75
 
 
 @pytest.mark.parametrize(
@@ -141,7 +152,7 @@ def test_peso_pondera_o_avanco():
     [
         [{"progresso": 40.0, "inicio_real": "2026-12-22", "fim_real": "2026-12-23"}, {"progresso": 100.0}],
         [{"progresso": 30.0, "fim_real": "2026-12-23"}, {"progresso": 10.0, "inicio_real": "2026-12-29"}],
-        [{"progresso": 80.0, "inicio_real": "2026-12-20", "fim_real": "2027-01-10", "peso": 2.0}, {}],
+        [{"progresso": 80.0, "inicio_real": "2026-12-20", "fim_real": "2027-01-10"}, {}],
     ],
 )
 def test_ultimo_ponto_do_realizado_coincide_com_o_card(linhas):

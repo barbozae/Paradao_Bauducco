@@ -42,7 +42,7 @@ def ler_planilha(caminho: Path) -> pd.DataFrame:
     if faltando:
         raise ValueError(f"Colunas ausentes na aba {ABA}: {', '.join(faltando)}")
 
-    # INÍCIO REAL, FIM REAL e PESO são opcionais: existem no Excel exportado pelo app.
+    # INÍCIO REAL e FIM REAL são opcionais: existem no Excel exportado pelo app.
     nomes_banco = {nome: chave for chave, nome in COLUNAS_EXCEL.items() if nome in df.columns}
     df = df[list(nomes_banco)].rename(columns=nomes_banco)
 

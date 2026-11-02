@@ -8,15 +8,6 @@ import pandas as pd
 from services.regras import ATRASADA, CONCLUIDA
 
 
-def _pesos(df: pd.DataFrame) -> np.ndarray:
-    """Usa a coluna peso; sem peso informado, cada atividade vale 1."""
-    if "peso" not in df:
-        return np.ones(len(df))
-
-    pesos = pd.to_numeric(df["peso"]).fillna(1.0).clip(lower=0).to_numpy(dtype=float)
-    return pesos if pesos.sum() > 0 else np.ones(len(df))
-
-
 def _em_dias(datas: pd.Series | pd.DatetimeIndex) -> np.ndarray:
     """Converte datas em números de dias, para fazer contas de calendário."""
     return np.asarray(datas, dtype="datetime64[D]").astype(int)
@@ -44,8 +35,8 @@ def _datas_reais(df: pd.DataFrame, data_hoje: date) -> tuple[pd.Series, pd.Serie
 
 
 def percentual_realizado(df: pd.DataFrame) -> float:
-    """Média do % Realizado ponderada pelo peso."""
-    return float(np.average(df["progresso"].to_numpy(dtype=float), weights=_pesos(df)))
+    """Média do % Realizado; todas as atividades valem igual."""
+    return float(df["progresso"].mean())
 
 
 def percentual_planejado(df: pd.DataFrame, data: date) -> float:
@@ -53,7 +44,7 @@ def percentual_planejado(df: pd.DataFrame, data: date) -> float:
     avanco = _avanco_linear(
         _em_dias(pd.DatetimeIndex([data])), _em_dias(df["inicio"]), _em_dias(df["termino"])
     )
-    return float(np.average(avanco[0], weights=_pesos(df)) * 100)
+    return float(avanco[0].mean() * 100)
 
 
 def montar_curva(df: pd.DataFrame, data_hoje: date) -> pd.DataFrame:
@@ -70,7 +61,6 @@ def montar_curva(df: pd.DataFrame, data_hoje: date) -> pd.DataFrame:
     ultima = pd.concat([df["termino"], fins_reais[com_avanco]]).max()
     datas = pd.date_range(primeira, ultima, freq="D")
     dias = _em_dias(datas)
-    pesos = _pesos(df)
 
     planejado = _avanco_linear(dias, _em_dias(df["inicio"]), _em_dias(df["termino"]))
     realizado = _avanco_linear(dias, _em_dias(inicios_reais), _em_dias(fins_reais))
@@ -79,8 +69,8 @@ def montar_curva(df: pd.DataFrame, data_hoje: date) -> pd.DataFrame:
     curva = pd.DataFrame(
         {
             "data": datas,
-            "planejado": planejado @ pesos / pesos.sum() * 100,
-            "realizado": realizado @ pesos / pesos.sum(),
+            "planejado": planejado.mean(axis=1) * 100,
+            "realizado": realizado.mean(axis=1),
         }
     )
     fim_realizado = pd.concat([pd.Series([pd.Timestamp(data_hoje)]), fins_reais[com_avanco]]).max()

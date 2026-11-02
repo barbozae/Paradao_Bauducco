@@ -33,9 +33,11 @@ streamlit run app.py
 ## Como funciona
 
 - **Tabela:** edite % Realizado, Início Real e Fim Real e clique em **Salvar**. Confirme cada célula com Enter antes de clicar em Salvar; mudar os filtros antes de salvar descarta as edições.
+- **Adicionar atividade:** informe linha, tarefa e datas planejadas no formulário do topo da página. Salve antes as edições da tabela.
+- **Excluir atividades:** marque a coluna Excluir, clique em **Excluir marcadas** e confirme. A exclusão é definitiva: para ter como recuperar, use antes o botão Exportar Excel.
 - **Status:** Concluída (100%), Atrasada (fim planejado já passou e % abaixo de 100), Em andamento (% acima de 0 ou Início Real preenchido), Não iniciada.
 - **Curva S:** cada atividade avança em linha reta, em dias corridos, entre as datas planejadas (Planejado) e entre as datas reais (Realizado). Sem data real, o avanço é lançado em hoje.
-- **Peso:** a coluna `peso` da tabela pondera o avanço. Vazia, cada atividade vale 1.
+- **Cálculo do avanço:** todas as atividades valem igual.
 - **Filtros:** valem ao mesmo tempo para cards, gráfico e tabela.
 - **Exportar Excel:** baixa todas as atividades, sem considerar os filtros.
 - Alterações feitas no `Base.xlsx` depois da carga não chegam ao dashboard.

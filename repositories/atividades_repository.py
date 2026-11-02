@@ -37,7 +37,6 @@ atividades = Table(
     Column("responsavel", Text),
     Column("inicio_real", Date),
     Column("fim_real", Date),
-    Column("peso", Numeric),
     Column("atualizado_em", DateTime(timezone=True), server_default=func.now()),
     CheckConstraint("progresso BETWEEN 0 AND 100", name="ck_progresso_faixa"),
     CheckConstraint("termino >= inicio", name="ck_datas_planejadas"),
@@ -68,8 +67,7 @@ def ler_atividades(engine: Engine) -> pd.DataFrame:
 
     for coluna in ("inicio", "termino", "inicio_real", "fim_real"):
         df[coluna] = pd.to_datetime(df[coluna])
-    for coluna in ("progresso", "peso"):
-        df[coluna] = pd.to_numeric(df[coluna]).astype(float)
+    df["progresso"] = pd.to_numeric(df["progresso"]).astype(float)
     return df
 
 
@@ -79,6 +77,12 @@ def inserir_atividades(engine: Engine, registros: list[dict], substituir: bool =
         if substituir:
             conexao.execute(delete(atividades))
         conexao.execute(insert(atividades), registros)
+
+
+def excluir_atividades(engine: Engine, ids: list[int]) -> int:
+    """Apaga definitivamente as atividades e devolve quantas foram excluídas."""
+    with engine.begin() as conexao:
+        return conexao.execute(delete(atividades).where(atividades.c.id.in_(ids))).rowcount
 
 
 def atualizar_progresso(engine: Engine, alteracoes: list[dict]) -> None:

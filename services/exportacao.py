@@ -15,18 +15,12 @@ COLUNAS_EXCEL = {
     "responsavel": "RESPONSÁVEL",
     "inicio_real": "INÍCIO REAL",
     "fim_real": "FIM REAL",
-    "peso": "PESO",
 }
 
 
 def gerar_excel(df: pd.DataFrame) -> bytes:
-    """Gera o .xlsx em memória; a coluna PESO só sai se tiver algum valor."""
-    colunas = {
-        chave: nome
-        for chave, nome in COLUNAS_EXCEL.items()
-        if chave != "peso" or df["peso"].notna().any()
-    }
-    saida = df[list(colunas)].rename(columns=colunas)
+    """Gera o .xlsx em memória."""
+    saida = df[list(COLUNAS_EXCEL)].rename(columns=COLUNAS_EXCEL)
 
     arquivo = BytesIO()
     with pd.ExcelWriter(arquivo, engine="openpyxl", datetime_format="DD/MM/YYYY") as escritor:

@@ -61,6 +61,34 @@ def validar_edicoes(df: pd.DataFrame) -> list[str]:
     return erros
 
 
+def padronizar_texto(texto: str | None, existentes: list[str] | None = None) -> str:
+    """Tira espaços sobrando e adota a grafia já existente, se houver.
+
+    Assim "valmir " e "Valmir" não viram duas pessoas diferentes nos filtros.
+    """
+    limpo = " ".join((texto or "").split())
+    for existente in existentes or []:
+        if existente.casefold() == limpo.casefold():
+            return existente
+    return limpo
+
+
+def validar_nova_atividade(
+    linha: str, tarefa: str, inicio: date | None, termino: date | None
+) -> list[str]:
+    """Devolve uma mensagem para cada problema (lista vazia = pode gravar)."""
+    erros = []
+    if not linha:
+        erros.append("Informe a linha.")
+    if not tarefa:
+        erros.append("Informe a tarefa.")
+    if inicio is None or termino is None:
+        erros.append("Informe as datas de início e de fim planejadas.")
+    elif termino < inicio:
+        erros.append("O fim planejado não pode ser anterior ao início planejado.")
+    return erros
+
+
 def identificar_alteracoes(original: pd.DataFrame, editado: pd.DataFrame) -> list[dict]:
     """Compara as duas versões pelo id e devolve só as linhas que mudaram."""
     antes = original.set_index("id")
