@@ -1,0 +1,6 @@
+.env
+Base.xlsx
+.streamlit/secrets.toml
+.venv/
+__pycache__/
+.pytest_cache/
